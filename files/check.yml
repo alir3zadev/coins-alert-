@@ -1,0 +1,38 @@
+name: Price Alert Check
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # هر ۱۵ دقیقه یک‌بار اجرا می‌شود
+  workflow_dispatch: {}       # امکان اجرای دستی از تب Actions
+
+permissions:
+  contents: write
+
+jobs:
+  check-price:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run price check
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python check_price.py
+
+      - name: Save state
+        run: |
+          git config user.name "price-alert-bot"
+          git config user.email "actions@github.com"
+          git add state.json
+          git diff --staged --quiet || git commit -m "update alert state"
+          git push
