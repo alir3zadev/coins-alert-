@@ -1,7 +1,8 @@
 """
-نسخه‌ی تک‌اجرا برای GitHub Actions
-هر بار که اجرا بشه، یک‌بار قیمت رو چک می‌کنه و در صورت نیاز پیام تلگرام می‌فرسته.
-توکن و chat_id از GitHub Secrets (متغیرهای محیطی) خونده می‌شه، نه از فایل.
+نسخه‌ی چند-کوینی برای GitHub Actions
+هر بار اجرا می‌شود، قیمت همه‌ی کوین‌های لیست‌شده در config.json را با هم
+از CoinGecko می‌گیرد و برای هر کوینی که وارد محدوده‌اش شده، پیام تلگرام
+جداگانه می‌فرستد.
 """
 
 import json
@@ -30,14 +31,16 @@ def send_telegram_message(token, chat_id, text):
     r.raise_for_status()
 
 
-def get_price(coin_id):
+def get_prices(coin_ids):
+    """قیمت چند کوین را در یک درخواست از CoinGecko می‌گیرد."""
     url = "https://api.coingecko.com/api/v3/simple/price"
-    r = requests.get(url, params={"ids": coin_id, "vs_currencies": "usd"}, timeout=15)
+    r = requests.get(
+        url,
+        params={"ids": ",".join(coin_ids), "vs_currencies": "usd"},
+        timeout=15,
+    )
     r.raise_for_status()
-    data = r.json()
-    if coin_id not in data:
-        raise ValueError(f"کوین با شناسه '{coin_id}' در CoinGecko پیدا نشد.")
-    return data[coin_id]["usd"]
+    return r.json()
 
 
 def main():
@@ -45,33 +48,45 @@ def main():
     chat_id = os.environ["CHAT_ID"]
 
     cfg = load_json(CONFIG_PATH, {})
-    coin_id = cfg["coin_id"]
-    low = cfg["low_price"]
-    high = cfg["high_price"]
+    coins = cfg["coins"]  # لیست دیکشنری: coin_id, low_price, high_price
 
-    state = load_json(STATE_PATH, {"alert_sent": False})
+    coin_ids = [c["coin_id"] for c in coins]
+    prices = get_prices(coin_ids)
 
-    price = get_price(coin_id)
-    print(f"قیمت فعلی {coin_id}: {price} دلار (محدوده: {low} تا {high})")
+    state = load_json(STATE_PATH, {})
 
-    in_range = low <= price <= high
+    for coin in coins:
+        coin_id = coin["coin_id"]
+        low = coin["low_price"]
+        high = coin["high_price"]
 
-    if in_range and not state.get("alert_sent"):
-        msg = (
-            f"🚨 هشدار قیمت!\n"
-            f"کوین: {coin_id}\n"
-            f"قیمت فعلی: {price} دلار\n"
-            f"محدوده تنظیم‌شده: {low} تا {high} دلار"
-        )
-        send_telegram_message(token, chat_id, msg)
-        state["alert_sent"] = True
-        print("پیام هشدار ارسال شد.")
-    elif not in_range and state.get("alert_sent"):
-        # وقتی قیمت از محدوده خارج شد، ریست می‌کنیم تا دفعه بعد که وارد شد دوباره خبر بده
-        state["alert_sent"] = False
-        print("قیمت از محدوده خارج شد؛ وضعیت ریست شد.")
-    else:
-        print("تغییری برای اطلاع‌رسانی نیست.")
+        if coin_id not in prices:
+            print(f"هشدار: کوین '{coin_id}' در پاسخ CoinGecko پیدا نشد.")
+            continue
+
+        price = prices[coin_id]["usd"]
+        print(f"قیمت {coin_id}: {price} دلار (محدوده: {low} تا {high})")
+
+        coin_state = state.get(coin_id, {"alert_sent": False})
+        in_range = low <= price <= high
+
+        if in_range and not coin_state.get("alert_sent"):
+            msg = (
+                f"🚨 هشدار قیمت!\n"
+                f"کوین: {coin_id}\n"
+                f"قیمت فعلی: {price} دلار\n"
+                f"محدوده تنظیم‌شده: {low} تا {high} دلار"
+            )
+            send_telegram_message(token, chat_id, msg)
+            coin_state["alert_sent"] = True
+            print(f"پیام هشدار برای {coin_id} ارسال شد.")
+        elif not in_range and coin_state.get("alert_sent"):
+            coin_state["alert_sent"] = False
+            print(f"{coin_id} از محدوده خارج شد؛ وضعیت ریست شد.")
+        else:
+            print(f"تغییری برای {coin_id} نیست.")
+
+        state[coin_id] = coin_state
 
     save_json(STATE_PATH, state)
 
