@@ -1,5 +1,7 @@
 {
-  "coin_id": "bitcoin",
-  "low_price": 60000,
-  "high_price": 65000
+  "coins": [
+    { "coin_id": "bitcoin", "low_price": 60000, "high_price": 65000 },
+    { "coin_id": "ethereum", "low_price": 2000, "high_price": 2500 },
+    { "coin_id": "ripple", "low_price": 0.5, "high_price": 0.7 }
+  ]
 }
