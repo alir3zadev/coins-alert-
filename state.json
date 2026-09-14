@@ -1,1 +1,11 @@
-{}
+{
+  "bitcoin": {
+    "alert_sent": true
+  },
+  "ethereum": {
+    "alert_sent": false
+  },
+  "ripple": {
+    "alert_sent": false
+  }
+}
