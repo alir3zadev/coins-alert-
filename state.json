@@ -1,9 +1,9 @@
 {
   "bitcoin": {
-    "alert_sent": true
+    "alert_sent": false
   },
   "ethereum": {
-    "alert_sent": false
+    "alert_sent": true
   },
   "ripple": {
     "alert_sent": false
