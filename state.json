@@ -3,7 +3,7 @@
     "alert_sent": false
   },
   "ethereum": {
-    "alert_sent": true
+    "alert_sent": false
   },
   "ripple": {
     "alert_sent": false
